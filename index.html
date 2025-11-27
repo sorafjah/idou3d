@@ -522,15 +522,15 @@
       playerGroup.add(leftEye);
       playerGroup.add(rightEye);
 
-      // Beak
-      const beakGeo = new THREE.ConeGeometry(0.8, 1.5, 16);
-      const beakMat = new THREE.MeshStandardMaterial({ color: 0xffa500 }); // より明るいオレンジ(Orange)に変更
+      // Beak (大きく変更)
+      const beakGeo = new THREE.ConeGeometry(1.2, 2.0, 16);
+      const beakMat = new THREE.MeshStandardMaterial({ color: 0xffa500 }); // Orange
       const beak = new THREE.Mesh(beakGeo, beakMat);
       beak.rotation.x = Math.PI / 2;
-      beak.position.set(0, 0, 3.2);
+      beak.position.set(0, 0, 3.5); // 位置調整
       playerGroup.add(beak);
 
-      // Eyebrows (New)
+      // Eyebrows
       const browGeo = new THREE.BoxGeometry(1.0, 0.2, 0.3);
       const browMat = new THREE.MeshBasicMaterial({ color: 0x000000 });
       
@@ -544,23 +544,23 @@
       rightBrow.rotation.z = 0.2; // 少し角度をつける
       playerGroup.add(rightBrow);
 
-      // Wings
-      const wingGeo = new THREE.SphereGeometry(1.5, 16, 16);
-      wingGeo.scale(1, 0.5, 1.5); // Flatten and stretch
+      // Wings (小さく変更)
+      const wingGeo = new THREE.SphereGeometry(1.0, 16, 16); // サイズ縮小 (1.5 -> 1.0)
+      wingGeo.scale(1, 0.6, 1.5); 
       
       // Left Wing
       const leftWing = new THREE.Mesh(wingGeo, bodyMat);
-      leftWing.position.set(3.2, 0, 0);
+      leftWing.position.set(3.0, 0, 0); // 位置調整
       playerGroup.add(leftWing);
 
-      // Right Wing (Raised)
+      // Right Wing (右手を下げて対称に)
       const rightWing = new THREE.Mesh(wingGeo, bodyMat);
-      rightWing.position.set(-3.2, 1, 0);
-      rightWing.rotation.z = -Math.PI / 4; // Raise it
+      rightWing.position.set(-3.0, 0, 0); // 位置調整
+      // rotation削除
       playerGroup.add(rightWing);
 
-      // Tail
-      const tailGeo = new THREE.ConeGeometry(1.2, 2, 16);
+      // Tail (大きく変更)
+      const tailGeo = new THREE.ConeGeometry(1.6, 2.5, 16); // サイズ拡大
       const tail = new THREE.Mesh(tailGeo, bodyMat);
       tail.rotation.x = -Math.PI / 2; // Point backwards
       tail.position.set(0, 0.5, -3.2);
