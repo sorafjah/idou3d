@@ -6,20 +6,18 @@
   <title>3D地図移動プログラミング</title>
   <!-- Tailwind CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
-  <!-- Tone.js CDN -->
+  <!-- Tone.js -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.min.js"></script>
-  <!-- Three.js CDN -->
+  <!-- Three.js (CDN) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-
-  <!-- 404回避用のデータURLファビコン -->
-  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ctext y='14' font-size='14'%3E📦%3C/text%3E%3C/svg%3E">
+  
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ctext y='14' font-size='14'%3E🗺️%3C/text%3E%3C/svg%3E">
   <meta name="theme-color" content="#ffffff">
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap');
-    body { font-family: 'Inter', system-ui, -apple-system, sans-serif; overscroll-behavior: none; touch-action: manipulation; }
+    body { font-family: 'Inter', system-ui, -apple-system, sans-serif; overscroll-behavior: none; touch-action: manipulation; user-select: none; -webkit-user-select: none; }
 
     :root{
-      /* くすみ水色（壁色）- 2D設定画面用 */
       --muted-sky: #a7c7d9;
       --muted-sky-dark: #8fb4ca;
     }
@@ -32,63 +30,56 @@
     .mode-btn { padding: .5rem 0.5rem; border: 1px solid #d1d5db; background:#f9fafb; color:#6b7280; font-size: 0.9rem; }
     .mode-btn.active{ background:#3b82f6; color:#fff; border-color:#3b82f6; }
 
-    /* 相対方位コマンドの強調表示 */
-    .cmd-relative { border: 2px solid #22d3ee; background-color: #ecfeff; color: #0e7490; font-weight: bold; }
-
     /* 設定ビューのスクロールバー非表示 */
     #settings-view { scrollbar-width: none; }
     #settings-view::-webkit-scrollbar { width:0; height:0; }
 
-    /* 3D化に伴う変更:
-      ゲーム画面のDOMグリッドはレイアウト計算とデバッグ用として残すが、
-      ユーザーには見えないようにする（Three.jsのCanvasが手前に来るため）。
-      ただし、完全非表示(display:none)にするとサイズ計算が狂うため opacity:0 にする。
-    */
-    #grid-container {
-      opacity: 0; 
-      pointer-events: none; /* クリック透過 */
-      z-index: 10;
-    }
+    /* 相対方位コマンドの強調表示 */
+    .cmd-relative { border: 2px solid #22d3ee; background-color: #ecfeff; color: #0e7490; font-weight: bold; }
 
-    /* 3D Canvas格納用コンテナ */
-    #three-canvas-container {
-      position: absolute;
-      top: 0; left: 0;
-      width: 100%; height: 100%;
-      z-index: 0; /* DOMグリッドの下、背景の上 */
-      border-radius: 0.5rem;
-      overflow: hidden;
-      background: linear-gradient(to bottom, #e0f2fe, #f0f9ff); /* 空のような背景 */
+    /* 3Dキャンバス用コンテナ */
+    #canvas-container {
+        width: 100%;
+        height: 100%;
+        position: relative;
+        overflow: hidden;
+        border-radius: 0.5rem;
+        /* background: linear-gradient(to bottom, #e0f2fe, #ffffff); 空のような背景 */
+        background-color: #bbf7d0; /* もう少し濃いめの緑に変更 */
+        box-shadow: inset 0 0 20px rgba(0,0,0,0.1);
     }
-    
-    /* 東西南北ラベルは3Dの上に浮かせたい */
-    .cardinal-label { 
-      position:absolute; display:none; font-weight:600; color:#334155; 
-      z-index: 20; /* 最前面 */
-      text-shadow: 0 1px 2px rgba(255,255,255,0.8);
-    }
-    .mode-cardinal .cardinal-label { display:block; }
-    .cardinal-n { top: 1rem; right: 1rem; } /* 3Dなので位置調整 */
-    .cardinal-s { bottom: 1rem; left: 1rem; }
-    .cardinal-e { bottom: 1rem; right: 1rem; }
-    .cardinal-w { top: 1rem; left: 1rem; }
+    canvas { outline: none; display: block; }
 
-    /* 2D用のスタイル（設定画面等で使用） */
-    .wall-cell { background-color: var(--muted-sky); }
+    /* オーバーレイUI（東西南北ラベルなど） */
+    .overlay-label {
+        position: absolute;
+        font-weight: 800;
+        color: #3b82f6;
+        text-shadow: 0 1px 2px rgba(255,255,255,0.8);
+        pointer-events: none;
+        z-index: 10;
+        display: none; /* デフォルト非表示 */
+    }
+    .mode-cardinal .overlay-label { display: block; }
+
+    .cardinal-n { top: 10px; left: 50%; transform: translateX(-50%); }
+    .cardinal-s { bottom: 10px; left: 50%; transform: translateX(-50%); }
+    .cardinal-e { right: 10px; top: 50%; transform: translateY(-50%); }
+    .cardinal-w { left: 10px; top: 50%; transform: translateY(-50%); }
+
   </style>
 </head>
 <body class="bg-gray-100 text-gray-800 h-screen w-screen overflow-hidden">
 
-  <!-- 設定ビュー (既存のDOMベース) -->
+  <!-- 設定ビュー (既存のまま) -->
   <div id="settings-view" class="p-4 md:p-8 max-w-4xl mx-auto h-full overflow-y-auto">
-    <h1 class="text-3xl font-bold mb-6 text-center text-blue-600">3D グリッド・プログラミング</h1>
+    <h1 class="text-3xl font-bold mb-6 text-center text-blue-600">プログラミング・マップ設定</h1>
     <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
       <!-- 左：入力 -->
       <div class="space-y-6 bg-white p-6 rounded-lg shadow-md">
         <fieldset class="border p-4 rounded-lg">
           <legend class="text-lg font-medium px-2">グリッドサイズ</legend>
           <div class="flex flex-col sm:flex-row gap-4">
-            <!-- 行 -->
             <div>
               <label class="block text-md font-medium mb-2">行</label>
               <div class="flex items-center">
@@ -97,7 +88,6 @@
                 <button id="rows-increment" type="button" class="p-3 border rounded-r-lg bg-gray-100 hover:bg-gray-200 text-lg font-bold w-12 sm:w-10">+</button>
               </div>
             </div>
-            <!-- 列 -->
             <div>
               <label class="block text-md font-medium mb-2">列</label>
               <div class="flex items-center">
@@ -118,7 +108,7 @@
             <label class="flex items-center gap-2 cursor-pointer"><input type="radio" name="item-type" value="waypoint"><span class="text-lg">🍔 通過地点</span></label>
             <label class="flex items-center gap-2 cursor-pointer"><input type="radio" name="item-type" value="erase"><span class="text-lg">🗑️ 消しゴム</span></label>
           </div>
-          <p class="text-sm text-gray-600 mt-2">通過地点は最大6個。ランダム配置も可。</p>
+          <p class="text-sm text-gray-600 mt-2">通過地点は最大6個。</p>
         </fieldset>
 
         <div class="flex items-center justify-center pt-2">
@@ -129,44 +119,43 @@
         <div class="space-y-3 pt-2">
           <button id="random-all-btn" class="w-full p-3 bg-green-500 text-white rounded-lg shadow">🎲 全設定ランダム</button>
           <button id="random-items-btn" class="w-full p-3 bg-green-500 text-white rounded-lg shadow">🔄 アイテムのみランダム</button>
-          <button id="start-game-btn" class="w-full p-3 bg-blue-600 text-white rounded-lg shadow">🚀 ゲーム開始</button>
+          <button id="start-game-btn" class="w-full p-3 bg-blue-600 text-white rounded-lg shadow font-bold text-xl">🚀 3Dで開始</button>
         </div>
         <p id="settings-error" class="text-red-500 text-center h-6"></p>
       </div>
-      <!-- 右：プレビュー -->
+      <!-- 右：2Dプレビュー (設定用) -->
       <div class="bg-white p-4 rounded-lg shadow-md">
-        <h2 class="text-xl font-semibold mb-4 text-center">配置プレビュー</h2>
+        <h2 class="text-xl font-semibold mb-4 text-center">配置プレビュー (2D)</h2>
         <div id="setting-grid-container" class="grid bg-white border border-gray-300 rounded-lg overflow-hidden"></div>
       </div>
     </div>
   </div>
 
-  <!-- ゲームビュー (3D化) -->
-  <div id="game-view" class="hidden h-screen w-screen flex flex-col p-4">
-    <div class="flex justify-between items-center mb-2 w-full max-w-7xl mx-auto flex-shrink-0 z-20 relative">
+  <!-- ゲームビュー (3D Canvas + UI Overlay) -->
+  <div id="game-view" class="hidden h-screen w-screen flex flex-col p-4 relative">
+    <div class="flex justify-between items-center mb-2 w-full max-w-7xl mx-auto flex-shrink-0 z-20">
       <span class="text-lg">&nbsp;</span>
-      <div id="message-area" class="text-xl font-semibold min-h-[2rem] text-center w-full px-4 py-1 rounded bg-white/80 shadow-sm backdrop-blur-sm"></div>
+      <div id="message-area" class="text-xl font-semibold min-h-[2rem] text-center w-full bg-white/80 rounded px-4 py-1 shadow-sm backdrop-blur-sm"></div>
       <span class="text-lg">&nbsp;</span>
     </div>
 
     <div class="flex-grow flex flex-col md:flex-row-reverse gap-4 w-full max-w-7xl mx-auto overflow-hidden relative z-10">
-      <!-- 右：グリッド（3D Canvas + 透明DOMグリッド） -->
-      <div class="flex-grow flex justify-center items-center md:w-3/5 h-full relative">
-        <div id="grid-wrapper" class="relative">
-          <!-- 3D Canvas Container -->
-          <div id="three-canvas-container"></div>
-
-          <!-- 東西南北ラベル -->
-          <!-- 3D用に位置調整済み -->
-          
-          <!-- 旧DOMグリッド（レイアウト維持のため残存、opacity:0） -->
-          <div id="grid-container" class="grid bg-white shadow-lg rounded-lg border border-gray-300"></div>
+      
+      <!-- 右：3Dキャンバスエリア -->
+      <div class="flex-grow flex justify-center items-center md:w-3/5 h-full relative shadow-lg rounded-lg border border-gray-300 bg-gray-50">
+        <div id="canvas-container">
+            <!-- 3D Canvas will be injected here -->
+            <!-- Overlay Labels -->
+            <span class="overlay-label cardinal-n">北</span>
+            <span class="overlay-label cardinal-s">南</span>
+            <span class="overlay-label cardinal-e">東</span>
+            <span class="overlay-label cardinal-w">西</span>
         </div>
       </div>
-      
-      <!-- 左：操作（コンパクト） -->
+
+      <!-- 左：操作パネル（HTMLオーバーレイのまま） -->
       <div class="flex flex-col md:w-2/5 space-y-3 h-full z-20">
-        <div class="bg-white p-3 rounded-lg shadow-md border flex-grow min-h-[320px] overflow-y-auto">
+        <div class="bg-white/95 p-3 rounded-lg shadow-md border flex-grow min-h-[320px] overflow-y-auto backdrop-blur-sm">
           <div id="sequence-display" class="flex flex-wrap gap-2 text-2xl items-start content-start"></div>
         </div>
         <!-- モードボタン -->
@@ -177,10 +166,10 @@
         </div>
         <div id="direction-pad" class="p-2 bg-white rounded-lg shadow-md h-[120px] flex justify-center items-center"></div>
         <div class="grid grid-cols-4 gap-2">
-          <button id="undo-btn" class="p-2 bg-blue-500 text-white rounded-lg shadow text-sm">もどす</button>
-          <button id="reset-btn" class="p-2 bg-blue-500 text-white rounded-lg shadow text-sm">クリア</button>
-          <button id="step-btn" class="p-2 bg-indigo-500 text-white rounded-lg shadow text-sm">一手進む</button>
-          <button id="run-btn" class="p-2 bg-green-600 text-white rounded-lg shadow text-sm">実行</button>
+          <button id="undo-btn" class="p-2 bg-blue-500 text-white rounded-lg shadow text-sm font-bold">もどす</button>
+          <button id="reset-btn" class="p-2 bg-blue-500 text-white rounded-lg shadow text-sm font-bold">クリア</button>
+          <button id="step-btn" class="p-2 bg-indigo-500 text-white rounded-lg shadow text-sm font-bold">一手進む</button>
+          <button id="run-btn" class="p-2 bg-green-600 text-white rounded-lg shadow text-sm font-bold">実行</button>
         </div>
         <button id="back-to-settings-btn" class="text-gray-500 hover:underline text-center text-lg p-1">設定に戻る</button>
       </div>
@@ -196,11 +185,20 @@
 
   // ===== Three.js Global Variables =====
   let scene, camera, renderer;
-  let tCube; // プレイヤーMesh
-  let tItems = {}; // アイテムMesh管理 { "r,c": Mesh }
-  let tGridGroup; // グリッド全体のグループ
-  const T_CELL_SIZE = 10; // 3D空間上のセルサイズ
-  let is3DInitialized = false;
+  let gridMeshes = []; // 床タイル
+  let itemMeshes = []; // アイテム（スプライト）
+  let wallMeshes = []; // 壁
+  let playerGroup; // プレイヤーのグループ（体＋目＋口）
+  let isThreeInitialized = false;
+  
+  // プレイヤーのアニメーション用状態
+  const playerState = {
+    currentR: 0, currentC: 0, // 論理座標
+    targetX: 0, targetZ: 0,   // 目標3D座標
+    currentX: 0, currentZ: 0, // 現在3D座標
+    currentRot: 0, targetRot: 0 // Y軸回転
+  };
+  const TILE_SIZE = 10; // 3D空間での1マスのサイズ
 
   document.addEventListener('DOMContentLoaded', () => {
     // DOM取得
@@ -208,10 +206,12 @@
     const gameView = document.getElementById('game-view');
     const gridRowsInput = document.getElementById('grid-rows');
     const gridColsInput = document.getElementById('grid-cols');
+    
     const rowsDecrement = document.getElementById('rows-decrement');
     const rowsIncrement = document.getElementById('rows-increment');
     const colsDecrement = document.getElementById('cols-decrement');
     const colsIncrement = document.getElementById('cols-increment');
+
     const itemSelector = document.getElementById('item-selector');
     const settingGridContainer = document.getElementById('setting-grid-container');
     const randomAllBtn = document.getElementById('random-all-btn');
@@ -221,13 +221,10 @@
     const requireOrderCb = document.getElementById('require-order-cb');
 
     const backToSettingsBtn = document.getElementById('back-to-settings-btn');
-    const gridContainer = document.getElementById('grid-container');
-    const gridWrapper = document.getElementById('grid-wrapper');
+    const canvasContainer = document.getElementById('canvas-container'); // 3Dコンテナ
     const sequenceDisplay = document.getElementById('sequence-display');
     const directionPad = document.getElementById('direction-pad');
-    const threeCanvasContainer = document.getElementById('three-canvas-container'); // 追加
 
-    // モードボタン
     const modeAbsoluteBtn = document.getElementById('mode-absolute-btn');
     const modeCardinalBtn = document.getElementById('mode-cardinal-btn');
     const modeRelativeBtn = document.getElementById('mode-relative-btn');
@@ -238,7 +235,7 @@
     const runBtn = document.getElementById('run-btn');
     const messageArea = document.getElementById('message-area');
 
-    // ---- 音 ----
+    // ---- 音 (既存ロジック) ----
     let synth; let drum; let noise; let mono;
     async function initAudio(){
       try{
@@ -259,15 +256,13 @@
     function playSuccess(){
       if(!synth) return;
       const now = Tone.now();
-      const notes = ['C5','E5','G5','C6'];
-      notes.forEach((n,i)=>synth.triggerAttackRelease(n, 0.12, now + i*0.12));
+      ['C5','E5','G5','C6'].forEach((n,i)=>synth.triggerAttackRelease(n, 0.12, now + i*0.12));
     }
     function playFailLong(){
       if(!mono) return;
       const t = Tone.now();
-      const seq = [ ['E3',0.25], ['D3',0.25], ['C3',0.35], ['A2',0.6] ];
       let acc = 0;
-      seq.forEach(([n,d])=>{ mono.triggerAttackRelease(n, d, t+acc); acc += d*0.9; });
+      [ ['E3',0.25], ['D3',0.25], ['C3',0.35], ['A2',0.6] ].forEach(([n,d])=>{ mono.triggerAttackRelease(n, d, t+acc); acc += d*0.9; });
     }
     function playGhostTriple(){
       if(!drum||!noise) return;
@@ -278,7 +273,7 @@
       noise.triggerAttackRelease('16n', t + 0.60);
     }
 
-    // 状態
+    // ---- ゲーム状態 ----
     const allWaypointIcons = ['🍔','🍎','🍰','🍉','🍓','🍇','🥝','🍍','🍕','🍩','🥐','🍗','❤️','💚','💛','💙','🩷'];
     let landmarks = shuffle(allWaypointIcons).slice(0,6);
     let iconIndex = 0;
@@ -290,18 +285,18 @@
     let gameState = { 
       player:{row:0,col:0,dir:'up'}, 
       sequence:[], 
-      originalSequence: [],
-      currentStep: 0,
-      errorStep: -1,
-      errorMessage: '',
+      originalSequence: [], 
+      currentStep: 0,       
+      errorStep: -1,        
+      errorMessage: '',     
       collectedWaypoints:new Set(), 
-      nextWaypointIndex: 0,
+      nextWaypointIndex: 0, 
       isRunning:false, 
       moveMode:'absolute', 
       exploded:false 
     };
 
-    // 設定グリッド
+    // 設定グリッドイベント
     gridRowsInput.addEventListener('input', updateSettingGrid);
     gridColsInput.addEventListener('input', updateSettingGrid);
 
@@ -334,14 +329,18 @@
       const cols = clamp(parseInt(gridColsInput.value)||6,3,10);
       gridRowsInput.value = rows; gridColsInput.value = cols;
       gameConfig.gridRows = rows; gameConfig.gridCols = cols;
+      
       settingGridContainer.innerHTML='';
       settingGridContainer.style.gridTemplateColumns = `repeat(${cols}, minmax(0,1fr))`;
+      
+      // 範囲外のアイテム削除
       if (gameConfig.start && (gameConfig.start.row>=rows||gameConfig.start.col>=cols)) gameConfig.start=null;
       if (gameConfig.goal && (gameConfig.goal.row>=rows||gameConfig.goal.col>=cols)) gameConfig.goal=null;
       gameConfig.waypoints = gameConfig.waypoints.filter(w=>w.row<rows&&w.col<cols);
       gameConfig.walls = gameConfig.walls.filter(w=>w.row<rows&&w.col<cols);
       gameConfig.impassables = gameConfig.impassables.filter(w=>w.row<rows&&w.col<cols);
       gameConfig.waypoints.forEach((wp,i)=>wp.icon=gameConfig.waypoints[i].icon ?? landmarks[i%landmarks.length]);
+
       for(let r=0;r<rows;r++) for(let c=0;c<cols;c++){
         const d=document.createElement('div');
         d.className='setting-grid-cell';
@@ -361,27 +360,25 @@
       const wpi=gameConfig.waypoints.findIndex(w=>w.row===row && w.col===col);
       const wli=gameConfig.walls.findIndex(w=>w.row===row && w.col===col);
       const ipi=gameConfig.impassables.findIndex(w=>w.row===row && w.col===col);
+
       if (sel!=='start' && isS) gameConfig.start=null;
       if (sel!=='goal' && isG) gameConfig.goal=null;
       if (sel!=='waypoint' && wpi>-1) gameConfig.waypoints.splice(wpi,1);
       if (sel!=='wall' && wli>-1) gameConfig.walls.splice(wli,1);
       if (sel!=='impassable' && ipi>-1) gameConfig.impassables.splice(ipi,1);
+
       switch(sel){
         case 'start': gameConfig.start=coord; break;
         case 'goal': gameConfig.goal=coord; break;
         case 'waypoint':
           if(wpi===-1){
             if(gameConfig.waypoints.length<6){
-              const icon = pickNextIcon();
-              gameConfig.waypoints.push({row,col,icon});
-            } else {
-              flashError('通過地点は6個までです');
-            }
+              gameConfig.waypoints.push({row,col,icon:pickNextIcon()});
+            } else { flashError('通過地点は6個までです'); }
           }
           break;
         case 'wall': if(wli===-1) gameConfig.walls.push(coord); break;
         case 'impassable': if(ipi===-1) gameConfig.impassables.push(coord); break;
-        case 'erase': break;
       }
       gameConfig.waypoints.forEach((wp,i)=>wp.icon=gameConfig.waypoints[i].icon ?? landmarks[i%landmarks.length]);
       updateSettingGridUI();
@@ -389,58 +386,49 @@
 
     function updateSettingGridUI(){
       settingGridContainer.querySelectorAll('.setting-grid-cell').forEach(c=>{
-        c.textContent='';
-        c.classList.remove('setting-wall-cell');
+        c.textContent=''; c.classList.remove('setting-wall-cell');
       });
       gameConfig.walls.forEach(w=>{
         const c=getSetCell(w.row,w.col);
-        if(c) { c.classList.add('setting-wall-cell'); c.textContent=''; }
+        if(c) { c.classList.add('setting-wall-cell'); }
       });
       gameConfig.impassables.forEach(w=>{ const c=getSetCell(w.row,w.col); if(c) c.textContent='👻'; });
       
       const reqOrder = gameConfig.requireOrder; 
       gameConfig.waypoints.forEach((wp, i)=>{ 
         const c=getSetCell(wp.row,wp.col); 
-        if(c) { c.textContent = reqOrder ? `${wp.icon}${i+1}` : wp.icon; }
+        if(c) c.textContent = reqOrder ? `${wp.icon}${i+1}` : wp.icon; 
       });
       
       if (gameConfig.goal){ const c=getSetCell(gameConfig.goal.row,gameConfig.goal.col); if(c) c.textContent='🏠'; }
       if (gameConfig.start){ 
         const c=getSetCell(gameConfig.start.row,gameConfig.start.col); 
-        if(c) c.innerHTML='<span style="display:inline-block; transform: none;">🐤</span>'; 
+        if(c) c.innerHTML='<span style="display:inline-block;">🐤</span>'; 
       }
     }
     const getSetCell=(r,c)=>settingGridContainer.querySelector(`[data-row="${r}"][data-col="${c}"]`);
 
     randomAllBtn.addEventListener('click', async ()=>{
       await initAudio();
-      gameConfig.gridRows=rand(3,10);
-      gameConfig.gridCols=rand(3,10);
-      gridRowsInput.value=gameConfig.gridRows;
-      gridColsInput.value=gameConfig.gridCols;
+      gameConfig.gridRows=rand(3,10); gameConfig.gridCols=rand(3,10);
+      gridRowsInput.value=gameConfig.gridRows; gridColsInput.value=gameConfig.gridCols;
       gameConfig.waypointsCount=rand(0,6);
       gameConfig.requireOrder = Math.random() < 0.5;
       requireOrderCb.checked = gameConfig.requireOrder;
-      resetIcons();
-      randomizeItemPlacement();
-      updateSettingGrid();
+      resetIcons(); randomizeItemPlacement(); updateSettingGrid();
     });
     randomItemsBtn.addEventListener('click', async ()=>{
       await initAudio();
-      gameConfig.gridRows=+gridRowsInput.value;
-      gameConfig.gridCols=+gridColsInput.value;
+      gameConfig.gridRows=+gridRowsInput.value; gameConfig.gridCols=+gridColsInput.value;
       gameConfig.waypointsCount=rand(0,6);
       gameConfig.requireOrder = Math.random() < 0.5;
       requireOrderCb.checked = gameConfig.requireOrder;
-      resetIcons();
-      randomizeItemPlacement();
-      updateSettingGridUI();
+      resetIcons(); randomizeItemPlacement(); updateSettingGridUI();
     });
 
     function randomizeItemPlacement(){
       const rows=gameConfig.gridRows, cols=gameConfig.gridCols, count=gameConfig.waypointsCount; const used=new Set();
-      gameConfig.walls=[];
-      gameConfig.impassables=[];
+      gameConfig.walls=[]; gameConfig.impassables=[];
       gameConfig.start = randomEmpty(rows,cols,used);
       gameConfig.goal = randomEmpty(rows,cols,used);
       gameConfig.waypoints=[];
@@ -477,13 +465,306 @@
           set.add(s);
         }
         return true;
-      }catch(e){
-        settingsError.textContent=e.message;
-        return false;
-      }
+      }catch(e){ settingsError.textContent=e.message; return false; }
     }
 
-    // ゲームビュー
+    // ===== 3D Logic Starts =====
+
+    function initThreeJS() {
+      if(isThreeInitialized) return;
+      isThreeInitialized = true;
+
+      // Scene
+      scene = new THREE.Scene();
+      // フォグを削除
+      // scene.fog = new THREE.Fog(0xe0f2fe, 30, 150);
+
+      // Camera
+      camera = new THREE.PerspectiveCamera(45, canvasContainer.clientWidth / canvasContainer.clientHeight, 0.1, 1000);
+      // 視点を低くし、斜め45度くらいに設定 (YとZを近づける)
+      camera.position.set(0, 50, 60);
+      camera.lookAt(0, 0, 0);
+
+      // Renderer
+      renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+      renderer.setSize(canvasContainer.clientWidth, canvasContainer.clientHeight);
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+      renderer.shadowMap.enabled = true;
+      canvasContainer.appendChild(renderer.domElement);
+
+      // Lighting
+      const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+      scene.add(ambientLight);
+
+      const dirLight = new THREE.DirectionalLight(0xffffff, 0.7);
+      dirLight.position.set(20, 50, 20);
+      dirLight.castShadow = true;
+      dirLight.shadow.mapSize.width = 1024;
+      dirLight.shadow.mapSize.height = 1024;
+      scene.add(dirLight);
+
+      // Player Group (Chick)
+      playerGroup = new THREE.Group();
+      
+      // Body (胴体)
+      const bodyGeo = new THREE.SphereGeometry(2.8, 32, 32); // 少し小さく
+      const bodyMat = new THREE.MeshStandardMaterial({ color: 0xffd700, roughness: 0.3 }); // Gold/Yellow
+      const body = new THREE.Mesh(bodyGeo, bodyMat);
+      body.position.set(0, 0, 0); 
+      body.castShadow = true;
+      playerGroup.add(body);
+
+      // Head (頭) - 斜め前上に配置 (Y+, Z+)
+      const headGeo = new THREE.SphereGeometry(2.0, 32, 32);
+      const head = new THREE.Mesh(headGeo, bodyMat);
+      head.position.set(0, 2.8, 1.2); 
+      head.castShadow = true;
+      playerGroup.add(head);
+
+      // Eyes (頭の位置に合わせて調整)
+      const eyeGeo = new THREE.SphereGeometry(0.35, 16, 16);
+      const eyeMat = new THREE.MeshBasicMaterial({ color: 0x000000 });
+      
+      const leftEye = new THREE.Mesh(eyeGeo, eyeMat);
+      leftEye.position.set(1.0, 3.2, 2.6); // Head基準で配置
+      playerGroup.add(leftEye);
+
+      const rightEye = new THREE.Mesh(eyeGeo, eyeMat);
+      rightEye.position.set(-1.0, 3.2, 2.6);
+      playerGroup.add(rightEye);
+
+      // Beak (頭の位置に合わせて調整)
+      const beakGeo = new THREE.ConeGeometry(0.8, 1.5, 16);
+      const beakMat = new THREE.MeshStandardMaterial({ color: 0xff8c00 }); // 濃いオレンジに変更
+      const beak = new THREE.Mesh(beakGeo, beakMat);
+      beak.rotation.x = Math.PI / 2;
+      beak.position.set(0, 2.8, 3.2); // Headの前
+      playerGroup.add(beak);
+
+      // Eyebrows (頭の位置に合わせて調整)
+      const browGeo = new THREE.BoxGeometry(0.8, 0.15, 0.2);
+      const browMat = new THREE.MeshBasicMaterial({ color: 0x000000 });
+      
+      const leftBrow = new THREE.Mesh(browGeo, browMat);
+      leftBrow.position.set(1.0, 4.0, 2.4);
+      leftBrow.rotation.z = -0.2; // 少し角度をつける
+      playerGroup.add(leftBrow);
+
+      const rightBrow = new THREE.Mesh(browGeo, browMat);
+      rightBrow.position.set(-1.0, 4.0, 2.4);
+      rightBrow.rotation.z = 0.2; // 少し角度をつける
+      playerGroup.add(rightBrow);
+
+      // Wings (胴体に合わせて調整)
+      const wingGeo = new THREE.SphereGeometry(1.0, 16, 16);
+      wingGeo.scale(1, 0.6, 1.5); 
+      
+      // Left Wing
+      const leftWing = new THREE.Mesh(wingGeo, bodyMat);
+      leftWing.position.set(2.6, 0.5, 0); 
+      playerGroup.add(leftWing);
+
+      // Right Wing
+      const rightWing = new THREE.Mesh(wingGeo, bodyMat);
+      rightWing.position.set(-2.6, 0.5, 0);
+      playerGroup.add(rightWing);
+
+      // Tail (胴体に合わせて調整)
+      const tailGeo = new THREE.SphereGeometry(1.0, 16, 16); // 小さい球
+      const tail = new THREE.Mesh(tailGeo, bodyMat);
+      tail.position.set(0, -1.0, -2.6); 
+      playerGroup.add(tail);
+
+      scene.add(playerGroup);
+
+      // Resize Handler
+      window.addEventListener('resize', onWindowResize, false);
+      animate();
+    }
+
+    function onWindowResize() {
+      if(!camera || !renderer) return;
+      camera.aspect = canvasContainer.clientWidth / canvasContainer.clientHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(canvasContainer.clientWidth, canvasContainer.clientHeight);
+    }
+
+    // Create Text Texture for Billboards
+    function createEmojiTexture(emoji, label="") {
+        const canvas = document.createElement('canvas');
+        canvas.width = 128;
+        canvas.height = 128;
+        const ctx = canvas.getContext('2d');
+        // Clear (transparent)
+        ctx.clearRect(0,0,128,128);
+        
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        
+        // Emoji
+        ctx.font = '80px Arial';
+        ctx.fillStyle = 'white'; // shadow substitute
+        ctx.fillText(emoji, 64, 60); 
+        
+        // Label (e.g. numbers)
+        if(label) {
+            ctx.font = 'bold 40px Arial';
+            ctx.fillStyle = '#1e40af';
+            ctx.strokeStyle = 'white';
+            ctx.lineWidth = 4;
+            ctx.strokeText(label, 100, 100);
+            ctx.fillText(label, 100, 100);
+        }
+
+        const tex = new THREE.CanvasTexture(canvas);
+        tex.magFilter = THREE.LinearFilter;
+        tex.minFilter = THREE.LinearFilter;
+        return tex;
+    }
+
+    function generate3DMap() {
+        // Clear Old Objects
+        gridMeshes.forEach(m => scene.remove(m));
+        itemMeshes.forEach(m => scene.remove(m));
+        wallMeshes.forEach(m => scene.remove(m));
+        gridMeshes = [];
+        itemMeshes = [];
+        wallMeshes = [];
+
+        const rows = gameConfig.gridRows;
+        const cols = gameConfig.gridCols;
+
+        // Calculate offset to center the grid
+        const offsetX = (cols * TILE_SIZE) / 2 - (TILE_SIZE / 2);
+        const offsetZ = (rows * TILE_SIZE) / 2 - (TILE_SIZE / 2);
+
+        // Adjust Camera (視点変更をここにも反映)
+        const maxDim = Math.max(rows, cols);
+        // 高さ(Y)を抑え、奥行き(Z)を確保して45度程度にする
+        camera.position.set(0, maxDim * 8 + 5, maxDim * 8 + 15);
+        camera.lookAt(0, 0, 0);
+
+        // Floor Logic
+        const planeGeo = new THREE.BoxGeometry(TILE_SIZE - 0.5, 1, TILE_SIZE - 0.5); // Slightly smaller for gaps
+        
+        // (修正) タイルを白（不透明）に変更
+        const whiteMat = new THREE.MeshStandardMaterial({ 
+            color: 0xffffff, 
+            roughness: 0.2,
+            metalness: 0.0,
+        });
+
+        for(let r=0; r<rows; r++){
+            for(let c=0; c<cols; c++){
+                const x = c * TILE_SIZE - offsetX;
+                const z = r * TILE_SIZE - offsetZ;
+
+                // Base Floor
+                const tile = new THREE.Mesh(planeGeo, whiteMat);
+                tile.position.set(x, -0.5, z);
+                tile.receiveShadow = true;
+                scene.add(tile);
+                gridMeshes.push(tile);
+
+                // Check Objects
+                // Wall
+                if(gameConfig.walls.some(w => w.row===r && w.col===c)){
+                    const wallGeo = new THREE.BoxGeometry(TILE_SIZE - 1, TILE_SIZE, TILE_SIZE - 1);
+                    // (修正) 壁も半透明に
+                    const wallMat = new THREE.MeshStandardMaterial({ 
+                        color: 0xa7c7d9, // Muted Sky
+                        transparent: true,
+                        opacity: 0.6,    // 壁は床より少し濃いめに
+                        roughness: 0.2
+                    }); 
+                    const wall = new THREE.Mesh(wallGeo, wallMat);
+                    wall.position.set(x, TILE_SIZE/2, z);
+                    wall.castShadow = true;
+                    wall.receiveShadow = true;
+                    scene.add(wall);
+                    wallMeshes.push(wall);
+                    continue; // No other items on wall
+                }
+
+                // Billboard Helper
+                const addBillboard = (emoji, label="") => {
+                    const spriteMap = createEmojiTexture(emoji, label);
+                    const spriteMat = new THREE.SpriteMaterial({ map: spriteMap });
+                    const sprite = new THREE.Sprite(spriteMat);
+                    // 高さを下げ、位置を少し手前に (Z + 3.0)
+                    sprite.position.set(x, 3.5, z + 3.0); 
+                    sprite.scale.set(7, 7, 1); // 少しサイズ調整
+                    // Add userData to identify for removal later
+                    sprite.userData = { row: r, col: c, type: 'item' };
+                    scene.add(sprite);
+                    itemMeshes.push(sprite);
+                    return sprite;
+                };
+
+                // Goal
+                if(gameConfig.goal.row === r && gameConfig.goal.col === c) {
+                    addBillboard('🏠');
+                }
+
+                // Impassable
+                if(gameConfig.impassables.some(w => w.row===r && w.col===c)){
+                     const ghost = addBillboard('👻');
+                     ghost.userData.isGhost = true;
+                }
+
+                // Waypoints
+                const wpIndex = gameConfig.waypoints.findIndex(w => w.row===r && w.col===c);
+                if(wpIndex > -1){
+                    const wp = gameConfig.waypoints[wpIndex];
+                    const label = gameConfig.requireOrder ? `${wpIndex+1}` : "";
+                    const sprite = addBillboard(wp.icon, label);
+                    sprite.userData.isWaypoint = true;
+                    sprite.userData.wpKey = `${r},${c}`;
+                }
+            }
+        }
+    }
+
+    function animate() {
+        requestAnimationFrame(animate);
+
+        // Smooth Movement
+        if(playerGroup){
+            // Position Lerp
+            playerGroup.position.x += (playerState.targetX - playerGroup.position.x) * 0.15;
+            playerGroup.position.z += (playerState.targetZ - playerGroup.position.z) * 0.15;
+            
+            // Rotation Lerp (Shortest path)
+            let diff = playerState.targetRot - playerGroup.rotation.y;
+            // Normalize angle to -PI ~ PI
+            while (diff > Math.PI) diff -= Math.PI * 2;
+            while (diff < -Math.PI) diff += Math.PI * 2;
+            
+            playerGroup.rotation.y += diff * 0.15;
+            
+            // Bobbing effect
+            playerGroup.position.y = 3 + Math.sin(Date.now() * 0.005) * 0.5;
+        }
+
+        if(renderer && scene && camera) {
+            renderer.render(scene, camera);
+        }
+    }
+
+    // Helper to map Grid RC to 3D XZ
+    function get3DPos(r, c) {
+        const rows = gameConfig.gridRows;
+        const cols = gameConfig.gridCols;
+        const offsetX = (cols * TILE_SIZE) / 2 - (TILE_SIZE / 2);
+        const offsetZ = (rows * TILE_SIZE) / 2 - (TILE_SIZE / 2);
+        return {
+            x: c * TILE_SIZE - offsetX,
+            z: r * TILE_SIZE - offsetZ
+        };
+    }
+
+    // ===== Game View Control Logic =====
+
     backToSettingsBtn.addEventListener('click', showSettingsView);
     modeAbsoluteBtn.addEventListener('click',()=>setMoveMode('absolute'));
     modeCardinalBtn.addEventListener('click',()=>setMoveMode('cardinal'));
@@ -492,9 +773,9 @@
     function setMoveMode(mode){
       gameState.moveMode=mode; 
       gameState.sequence=[]; 
-      gameState.originalSequence = [];
-      gameState.currentStep = 0;
-      gameState.errorStep = -1;
+      gameState.originalSequence = []; 
+      gameState.currentStep = 0;       
+      gameState.errorStep = -1;        
       updateSequenceDisplay(); 
       resetPlayer();
       
@@ -503,13 +784,9 @@
       else if(mode==='cardinal') modeCardinalBtn.classList.add('active');
       else modeRelativeBtn.classList.add('active');
 
-      if(mode==='cardinal') {
-        // 3DではCSSクラスでの制御が難しいので、別途ラベル表示処理を入れるならここ
-        // 今回はcardinal-labelがDOMとして3Dの上に浮いているので、CSSクラスで制御可能
-        gridWrapper.classList.add('mode-cardinal');
-      } else {
-        gridWrapper.classList.remove('mode-cardinal');
-      }
+      const canvasContainer = document.getElementById('canvas-container');
+      if(mode==='cardinal') canvasContainer.classList.add('mode-cardinal');
+      else canvasContainer.classList.remove('mode-cardinal');
 
       if(mode==='absolute' || mode==='cardinal'){
         const labels = (mode==='absolute')
@@ -517,16 +794,16 @@
           : {up:'北', left:'西', right:'東', down:'南'};
 
         directionPad.innerHTML=`<div class="grid grid-cols-3 grid-rows-3 gap-1 w-full h-full place-items-center">
-          <div class="col-start-2 row-start-1"><button data-action="up" class="dir-btn p-2 text-2xl font-bold w-full h-full flex items-center justify-center rounded-lg">${labels.up}</button></div>
-          <div class="col-start-1 row-start-2"><button data-action="left" class="dir-btn p-2 text-2xl font-bold w-full h-full flex items-center justify-center rounded-lg">${labels.left}</button></div>
-          <div class="col-start-3 row-start-2"><button data-action="right" class="dir-btn p-2 text-2xl font-bold w-full h-full flex items-center justify-center rounded-lg">${labels.right}</button></div>
-          <div class="col-start-2 row-start-3"><button data-action="down" class="dir-btn p-2 text-2xl font-bold w-full h-full flex items-center justify-center rounded-lg">${labels.down}</button></div>
+          <div class="col-start-2 row-start-1"><button data-action="up" class="dir-btn p-2 text-2xl font-bold w-full h-full flex items-center justify-center rounded-lg bg-gray-50 border hover:bg-gray-100 shadow-sm">${labels.up}</button></div>
+          <div class="col-start-1 row-start-2"><button data-action="left" class="dir-btn p-2 text-2xl font-bold w-full h-full flex items-center justify-center rounded-lg bg-gray-50 border hover:bg-gray-100 shadow-sm">${labels.left}</button></div>
+          <div class="col-start-3 row-start-2"><button data-action="right" class="dir-btn p-2 text-2xl font-bold w-full h-full flex items-center justify-center rounded-lg bg-gray-50 border hover:bg-gray-100 shadow-sm">${labels.right}</button></div>
+          <div class="col-start-2 row-start-3"><button data-action="down" class="dir-btn p-2 text-2xl font-bold w-full h-full flex items-center justify-center rounded-lg bg-gray-50 border hover:bg-gray-100 shadow-sm">${labels.down}</button></div>
         </div>`;
       } else {
         directionPad.innerHTML=`<div class="grid grid-cols-3 gap-2 w-full h-full items-center">
-          <button data-action="turnLeft" class="dir-btn px-3 py-2 border rounded font-bold text-gray-700 bg-gray-50">左に90°</button>
-          <button data-action="forward" class="dir-btn px-3 py-2 border rounded font-bold text-gray-700 bg-gray-50">前進する</button>
-          <button data-action="turnRight" class="dir-btn px-3 py-2 border rounded font-bold text-gray-700 bg-gray-50">右に90°</button>
+          <button data-action="turnLeft" class="dir-btn px-3 py-2 border rounded font-bold text-gray-700 bg-gray-50 shadow-sm hover:bg-gray-100">左に90°</button>
+          <button data-action="forward" class="dir-btn px-3 py-2 border rounded font-bold text-gray-700 bg-gray-50 shadow-sm hover:bg-gray-100">前進する</button>
+          <button data-action="turnRight" class="dir-btn px-3 py-2 border rounded font-bold text-gray-700 bg-gray-50 shadow-sm hover:bg-gray-100">右に90°</button>
         </div>`;
       }
       addDirListeners();
@@ -565,8 +842,10 @@
       gameState.currentStep = 0;
       gameState.errorStep = -1;
       updateSequenceDisplay();
-      generateMap();
+      // 3Dリセット
       resetPlayer();
+      // アイテムも復活させるためMap再生成
+      generate3DMap();
     });
 
     stepBtn.addEventListener('click', async ()=>{
@@ -578,7 +857,8 @@
 
       if(gameState.currentStep === 0 || gameState.originalSequence.length !== gameState.sequence.length) {
         gameState.originalSequence = [...gameState.sequence];
-        resetPlayer();
+        resetPlayer(); // 3D reset
+        generate3DMap(); // Reset items
         gameState.currentStep = 0;
         gameState.errorStep = -1;
       }
@@ -601,7 +881,6 @@
           gameState.currentStep++;
           checkGoal();
         }
-        
         updateSequenceDisplay();
       }
 
@@ -628,43 +907,22 @@
     function showGameView(){
       settingsView.classList.add('hidden');
       gameView.classList.remove('hidden');
-      generateMap();
+      
+      // Init Three.js if needed
+      initThreeJS();
+      generate3DMap();
+      
       resetPlayer();
       setMoveMode('absolute');
-    }
-
-    // マップ生成（DOMと3D両方）
-    function generateMap(){
-      // DOMグリッド生成（非表示だがレイアウト維持のため）
-      gridContainer.innerHTML='';
-      gridContainer.style.gridTemplateColumns=`repeat(${gameConfig.gridCols}, minmax(0,1fr))`;
-      const parent=gridContainer.parentElement.parentElement;
-      const cw=parent.clientWidth-40;
-      const ch=parent.clientHeight-40;
-      const size=Math.min(cw/gameConfig.gridCols, ch/gameConfig.gridRows);
-      gridContainer.style.width=`${size*gameConfig.gridCols}px`;
-      gridContainer.style.height=`${size*gameConfig.gridRows}px`;
-
-      gridWrapper.style.width = gridContainer.style.width;
-      gridWrapper.style.height = gridContainer.style.height;
-
-      const font=size*0.4;
-      for(let r=0;r<gameConfig.gridRows;r++) for(let c=0;c<gameConfig.gridCols;c++){
-        const cell=document.createElement('div');
-        cell.id=`cell-${r}-${c}`;
-        cell.className='grid-cell'; // opacity:0, borderなしに変更済み
-        gridContainer.appendChild(cell);
-      }
-
-      // Three.js シーン再構築
-      generate3DMap(size * gameConfig.gridCols, size * gameConfig.gridRows);
+      // Resize trigger for safety
+      setTimeout(onWindowResize, 100);
     }
 
     function resetPlayer(){
       if(!gameConfig.start) return;
       gameState.player.row=gameConfig.start.row;
       gameState.player.col=gameConfig.start.col;
-      changeDirection('left');
+      
       gameState.collectedWaypoints.clear();
       gameState.nextWaypointIndex = 0;
       gameState.errorStep = -1;
@@ -673,8 +931,17 @@
       messageArea.textContent = '';
       messageArea.classList.remove('text-red-500', 'text-green-600');
       
-      // 3Dリセット
-      reset3DPlayer();
+      // 3D Reset
+      const pos = get3DPos(gameState.player.row, gameState.player.col);
+      playerState.targetX = pos.x;
+      playerState.targetZ = pos.z;
+      // Instant move
+      if(playerGroup) {
+          playerGroup.position.x = pos.x;
+          playerGroup.position.z = pos.z;
+      }
+      // Reset rotation (face South/Down default or keep)
+      changeDirection('left'); // Chick default side
     }
 
     async function runSequence(){
@@ -682,6 +949,7 @@
       gameState.exploded=false;
       
       resetPlayer();
+      generate3DMap(); // Reset collected items
       gameState.currentStep = 0;
       
       updateSequenceDisplay();
@@ -704,20 +972,19 @@
         }
         
         gameState.currentStep++;
-        await delay(400); // 移動アニメーション待機
+        await delay(500); // Wait for animation
       }
       
       if(!gameState.exploded && gameState.errorStep === -1){
         const atGoal = gameState.player.row===gameConfig.goal.row && gameState.player.col===gameConfig.goal.col;
         const allWaypointsCollected = gameState.collectedWaypoints.size === gameConfig.waypoints.length;
-        const reachedGoal = atGoal && allWaypointsCollected;
-          
-        if(reachedGoal){
+        if(atGoal && allWaypointsCollected){
           playSuccess();
           messageArea.textContent = "🎉 クリア！ 🎉";
           messageArea.classList.remove('text-red-500');
           messageArea.classList.add('text-green-600');
-          animate3DGoal(); // 3Dエフェクト
+          // 3D Jump Effect
+          jumpEffect();
         } else {
           playFailLong();
           messageArea.textContent = "ゴールに到達できませんでした";
@@ -727,6 +994,15 @@
       }
       
       gameState.isRunning=false; setDisabled(false);
+    }
+
+    // Jump Animation for Success
+    function jumpEffect(){
+        let jumpCount = 0;
+        const interval = setInterval(()=>{
+            if(jumpCount++ > 10) clearInterval(interval);
+            playerGroup.position.y = 3 + Math.abs(Math.sin(Date.now()*0.02))*3;
+        }, 16);
     }
 
     async function runOneStepInternal(action){ 
@@ -760,9 +1036,12 @@
           return false;
         }
 
-        // 進行確定
+        // Move Valid
         gameState.player.row=nr; gameState.player.col=nc;
-        move3DPlayer(nr, nc); // 3D移動アニメーション
+        // Update 3D Target
+        const pos = get3DPos(nr, nc);
+        playerState.targetX = pos.x;
+        playerState.targetZ = pos.z;
 
         if(gameConfig.impassables.some(w=>w.row===nr&&w.col===nc)){
           gameState.exploded = true;
@@ -771,29 +1050,28 @@
           return false;
         }
 
-        // ウェイポイント取得
+        // Waypoint Logic
         const wpIndex = gameConfig.waypoints.findIndex(w=>w.row===nr && w.col===nc);
         if(wpIndex > -1){
           const key=`${nr},${nc}`;
           if(!gameState.collectedWaypoints.has(key)){
-            
             let canCollect = false;
             if(gameConfig.requireOrder){
               if(wpIndex === gameState.nextWaypointIndex){
                 canCollect = true;
                 gameState.nextWaypointIndex++;
-              } else {
-                playTone(220, 0.1);
-              }
-            } else {
-              canCollect = true;
-            }
+              } else { playTone(220, 0.1); }
+            } else { canCollect = true; }
 
             if(canCollect){
               gameState.collectedWaypoints.add(key);
               playTone(440,0.08);
-              // 3Dアイテム削除
-              remove3DItem(nr, nc);
+              // Remove 3D Item
+              const item = itemMeshes.find(m => m.userData.wpKey === key);
+              if(item) {
+                  item.visible = false; // Hide it
+                  // Particle effect could go here
+              }
             }
           }
         }
@@ -803,19 +1081,30 @@
 
     function changeDirection(dir){
       gameState.player.dir=dir;
-      rotate3DPlayer(dir); // 3D回転
+      // Update Target Rotation for 3D
+      // North(Up) is -Z, South(Down) is +Z, East(Right) is +X, West(Left) is -X
+      // Chick default looks +Z (Towards camera/South) if rotation is 0?
+      // Let's align:
+      // Up (-Z) -> PI
+      // Down (+Z) -> 0
+      // Left (-X) -> -PI/2
+      // Right (+X) -> PI/2
+      
+      if(dir==='up') playerState.targetRot = Math.PI;
+      else if(dir==='down') playerState.targetRot = 0;
+      else if(dir==='left') playerState.targetRot = -Math.PI/2;
+      else if(dir==='right') playerState.targetRot = Math.PI/2;
     }
 
     function checkGoal(){
       const atGoal = gameState.player.row===gameConfig.goal.row && gameState.player.col===gameConfig.goal.col;
       const allWaypointsCollected = gameState.collectedWaypoints.size === gameConfig.waypoints.length;
-      
       if(atGoal && allWaypointsCollected){
         playSuccess();
         messageArea.textContent = "🎉 クリア！ 🎉";
         messageArea.classList.remove('text-red-500');
         messageArea.classList.add('text-green-600');
-        animate3DGoal();
+        jumpEffect();
       }
     }
 
@@ -835,14 +1124,12 @@
 
       sequenceDisplay.innerHTML = seq.map((a, i) => {
         let classes = modeClass + ' inline-block transition-all duration-150 ease-in-out';
-        
         if(gameState.isRunning && i === gameState.currentStep){
           classes += ' bg-yellow-200 ring-2 ring-yellow-400 scale-110 shadow-lg';
         }
         if(gameState.errorStep === i){
           classes += ' bg-red-200 ring-2 ring-red-500 scale-105 shadow-md';
         }
-        
         return `<span class="${classes}" data-step="${i}">${map[a]||a}</span>`;
       }).join('');
     }
@@ -857,9 +1144,13 @@
     }
 
     function randomEmpty(rows,cols,used){ let r,c,s; do{ r=rand(0,rows-1); c=rand(0,cols-1); s=`${r},${c}`; }while(used.has(s)); used.add(s); return {row:r,col:c}; }
+
     function flashError(msg){ settingsError.textContent=msg; setTimeout(()=>settingsError.textContent='',1800); }
 
-    // iPadの拡大防止
+    updateSettingGrid();
+    setMoveMode('absolute');
+
+    // iPad Touch Prevention
     document.addEventListener('dblclick', e => e.preventDefault(), { passive:false });
     let lastTouchEnd = 0;
     document.addEventListener('touchend', e => {
@@ -868,328 +1159,6 @@
       lastTouchEnd = now;
     }, { passive:false });
     document.addEventListener('gesturestart', e => e.preventDefault());
-
-    // ==========================================
-    // Three.js Implementation
-    // ==========================================
-
-    function init3D() {
-      if (is3DInitialized) return;
-      is3DInitialized = true;
-
-      // シーン
-      scene = new THREE.Scene();
-      // 背景色（Canvas側でなくScene側で指定も可だがCSSでグラデーションやるので透明に）
-      // scene.background = new THREE.Color(0xe0f2fe); 
-
-      // カメラ（OrthographicCamera: 平行投影でアイソメトリック風にする）
-      // パラメータは generate3DMap で調整
-      camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 1, 1000);
-      
-      // レンダラー
-      renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
-      renderer.setSize(100, 100); // 仮
-      threeCanvasContainer.appendChild(renderer.domElement);
-
-      // ライト
-      const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
-      scene.add(ambientLight);
-      const dirLight = new THREE.DirectionalLight(0xffffff, 0.5);
-      dirLight.position.set(10, 20, 10);
-      scene.add(dirLight);
-
-      // アニメーションループ
-      animate3D();
-    }
-
-    // 絵文字テクスチャ生成ヘルパー
-    function createEmojiTexture(emoji, bgColor = null) {
-      const cvs = document.createElement('canvas');
-      cvs.width = 128; cvs.height = 128;
-      const ctx = cvs.getContext('2d');
-      if(bgColor){
-        ctx.fillStyle = bgColor;
-        ctx.fillRect(0,0,128,128);
-      }
-      ctx.font = '90px sans-serif'; // Inter等はcanvasでは効きにくいのでsans-serif
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillStyle = 'white';
-      ctx.fillText(emoji, 64, 68);
-      
-      const tex = new THREE.CanvasTexture(cvs);
-      tex.needsUpdate = true;
-      return tex;
-    }
-
-    // マップ構築
-    function generate3DMap(domW, domH) {
-      if(!scene) init3D();
-
-      // カメラ設定更新
-      const aspect = domW / domH;
-      const viewSize = Math.max(gameConfig.gridRows, gameConfig.gridCols) * T_CELL_SIZE * 0.8; 
-      
-      camera.left = -viewSize * aspect / 2;
-      camera.right = viewSize * aspect / 2;
-      camera.top = viewSize / 2;
-      camera.bottom = -viewSize / 2;
-      
-      // アイソメトリック視点位置
-      const dist = 100;
-      camera.position.set(dist, dist, dist);
-      camera.lookAt(0, 0, 0);
-      camera.updateProjectionMatrix();
-
-      renderer.setSize(domW, domH);
-
-      // 既存オブジェクト全消去
-      if(tGridGroup) scene.remove(tGridGroup);
-      tGridGroup = new THREE.Group();
-      scene.add(tGridGroup);
-      tItems = {};
-
-      const rows = gameConfig.gridRows;
-      const cols = gameConfig.gridCols;
-      
-      // グリッドの中心を原点にするためのオフセット
-      const offsetX = (cols * T_CELL_SIZE) / 2 - (T_CELL_SIZE / 2);
-      const offsetZ = (rows * T_CELL_SIZE) / 2 - (T_CELL_SIZE / 2);
-
-      // 床と壁とアイテムの生成
-      const floorGeo = new THREE.BoxGeometry(T_CELL_SIZE * 0.95, 2, T_CELL_SIZE * 0.95);
-      const wallGeo = new THREE.BoxGeometry(T_CELL_SIZE, T_CELL_SIZE * 1.5, T_CELL_SIZE);
-      const wallMat = new THREE.MeshLambertMaterial({ color: 0xa7c7d9 });
-      
-      const floorMat1 = new THREE.MeshLambertMaterial({ color: 0xffffff });
-      const floorMat2 = new THREE.MeshLambertMaterial({ color: 0xf3f4f6 });
-
-      for(let r=0; r<rows; r++){
-        for(let c=0; c<cols; c++){
-          const x = c * T_CELL_SIZE - offsetX;
-          const z = r * T_CELL_SIZE - offsetZ;
-
-          // 床
-          const isCheck = (r+c)%2===0;
-          const floor = new THREE.Mesh(floorGeo, isCheck ? floorMat1 : floorMat2);
-          floor.position.set(x, -1, z); // 少し下に配置
-          tGridGroup.add(floor);
-
-          // 壁
-          if(gameConfig.walls.some(w=>w.row===r && w.col===c)){
-            const wall = new THREE.Mesh(wallGeo, wallMat);
-            wall.position.set(x, T_CELL_SIZE*0.75 - 2, z);
-            tGridGroup.add(wall);
-            continue; // 壁があるところにはアイテム置かない
-          }
-
-          // 通行不可（おばけ）
-          if(gameConfig.impassables.some(w=>w.row===r && w.col===c)){
-            createBillboardItem(x, z, '👻', 1.2, r, c);
-          }
-          
-          // ゴール
-          else if(gameConfig.goal && gameConfig.goal.row===r && gameConfig.goal.col===c){
-            createBillboardItem(x, z, '🏠', 1.5, r, c); // 少し大きく
-          }
-          
-          // ウェイポイント
-          else {
-            const wpIndex = gameConfig.waypoints.findIndex(w=>w.row===r && w.col===c);
-            if(wpIndex > -1){
-              const wp = gameConfig.waypoints[wpIndex];
-              const text = gameConfig.requireOrder ? `${wp.icon}${wpIndex+1}` : wp.icon;
-              createBillboardItem(x, z, text, 1.0, r, c);
-            }
-          }
-        }
-      }
-
-      // プレイヤー生成（黄色い箱）
-      const pGeo = new THREE.BoxGeometry(T_CELL_SIZE*0.6, T_CELL_SIZE*0.6, T_CELL_SIZE*0.6);
-      const pMat = new THREE.MeshLambertMaterial({ color: 0xfacc15 }); // yellow-400
-      tCube = new THREE.Mesh(pGeo, pMat);
-      
-      // 目（装飾）
-      const eyeGeo = new THREE.BoxGeometry(T_CELL_SIZE*0.1, T_CELL_SIZE*0.1, T_CELL_SIZE*0.05);
-      const eyeMat = new THREE.MeshBasicMaterial({color:0x000000});
-      const leftEye = new THREE.Mesh(eyeGeo, eyeMat);
-      leftEye.position.set(-T_CELL_SIZE*0.15, T_CELL_SIZE*0.1, -T_CELL_SIZE*0.3);
-      const rightEye = new THREE.Mesh(eyeGeo, eyeMat);
-      rightEye.position.set(T_CELL_SIZE*0.15, T_CELL_SIZE*0.1, -T_CELL_SIZE*0.3);
-      const beakGeo = new THREE.BoxGeometry(T_CELL_SIZE*0.2, T_CELL_SIZE*0.1, T_CELL_SIZE*0.1);
-      const beakMat = new THREE.MeshBasicMaterial({color:0xff9900});
-      const beak = new THREE.Mesh(beakGeo, beakMat);
-      beak.position.set(0, 0, -T_CELL_SIZE*0.35);
-
-      tCube.add(leftEye); tCube.add(rightEye); tCube.add(beak);
-      
-      tGridGroup.add(tCube);
-
-      // 初期位置セット（アニメーションなし）
-      if(gameConfig.start){
-        const sx = gameConfig.start.col * T_CELL_SIZE - offsetX;
-        const sz = gameConfig.start.row * T_CELL_SIZE - offsetZ;
-        tCube.position.set(sx, T_CELL_SIZE*0.3 + 50, sz); // 上から降ってくる演出用
-        
-        // 落下アニメーション
-        const targetY = T_CELL_SIZE*0.3;
-        tTargetPos.set(sx, targetY, sz);
-        tCube.position.y = 50; 
-        isMoving = true; // 補間開始
-      }
-    }
-
-    function createBillboardItem(x, z, text, scale, r, c){
-      const tex = createEmojiTexture(text);
-      const mat = new THREE.SpriteMaterial({ map: tex });
-      const sprite = new THREE.Sprite(mat);
-      sprite.position.set(x, T_CELL_SIZE * 0.5, z);
-      sprite.scale.set(T_CELL_SIZE * scale, T_CELL_SIZE * scale, 1);
-      
-      // 浮遊アニメーション用のランダムオフセット
-      sprite.userData = { 
-        baseY: sprite.position.y, 
-        offset: Math.random() * Math.PI * 2 
-      };
-      
-      tGridGroup.add(sprite);
-      tItems[`${r},${c}`] = sprite;
-    }
-
-    // プレイヤー移動アニメーション管理
-    let tTargetPos = new THREE.Vector3();
-    let tTargetRot = 0; // Y軸回転 (ラジアン)
-    let isMoving = false;
-
-    function reset3DPlayer(){
-      if(!tCube || !gameConfig.start) return;
-      const rows = gameConfig.gridRows;
-      const cols = gameConfig.gridCols;
-      const offsetX = (cols * T_CELL_SIZE) / 2 - (T_CELL_SIZE / 2);
-      const offsetZ = (rows * T_CELL_SIZE) / 2 - (T_CELL_SIZE / 2);
-
-      const x = gameConfig.start.col * T_CELL_SIZE - offsetX;
-      const z = gameConfig.start.row * T_CELL_SIZE - offsetZ;
-      
-      tCube.position.set(x, T_CELL_SIZE*0.3, z);
-      tCube.rotation.y = 0; // 上向き(デフォルト)だがあとでrotate3DPlayerで修正される
-      tCube.scale.set(1,1,1);
-
-      tTargetPos.set(x, T_CELL_SIZE*0.3, z);
-      tTargetRot = Math.PI; // 北向きスタート（後ろ姿）だと寂しいので南向く？いや、初期は北向き
-      // changeDirection('left')が呼ばれるのでそちらに任せる
-      
-      // アイテム復活
-      generate3DMap(renderer.domElement.width, renderer.domElement.height);
-    }
-
-    function move3DPlayer(row, col){
-      if(!tCube) return;
-      const rows = gameConfig.gridRows;
-      const cols = gameConfig.gridCols;
-      const offsetX = (cols * T_CELL_SIZE) / 2 - (T_CELL_SIZE / 2);
-      const offsetZ = (rows * T_CELL_SIZE) / 2 - (T_CELL_SIZE / 2);
-
-      const x = col * T_CELL_SIZE - offsetX;
-      const z = row * T_CELL_SIZE - offsetZ;
-
-      tTargetPos.set(x, T_CELL_SIZE*0.3, z);
-      isMoving = true;
-    }
-
-    function rotate3DPlayer(dir){
-      if(!tCube) return;
-      // 3D空間: +Z=South, -Z=North, +X=Right, -X=Left
-      // プレイヤーモデルは -Z(顔) を向いているとする
-      
-      // up: 北 (-Z) -> rotY = 0
-      // down: 南 (+Z) -> rotY = PI
-      // left: 西 (-X) -> rotY = PI/2
-      // right: 東 (+X) -> rotY = -PI/2
-      
-      let rot = 0;
-      if(dir==='up') rot = 0;
-      else if(dir==='down') rot = Math.PI;
-      else if(dir==='left') rot = Math.PI / 2;
-      else if(dir==='right') rot = -Math.PI / 2;
-
-      tTargetRot = rot;
-      // 最短回転方向の計算は省略（90度刻みなので単純LERPで概ねOK）
-    }
-
-    function remove3DItem(r, c){
-      const key = `${r},${c}`;
-      const mesh = tItems[key];
-      if(mesh){
-        // エフェクト（拡大して消える）
-        mesh.userData.collecting = true; 
-        // 少ししたら消去はanimate内で処理
-      }
-    }
-
-    function animate3DGoal(){
-      if(tCube){
-        // 喜びの舞
-        tCube.userData.dancing = true;
-      }
-    }
-
-    function animate3D() {
-      requestAnimationFrame(animate3D);
-      if(!renderer || !scene) return;
-
-      const delta = 0.05; // 簡易タイムステップ
-
-      // プレイヤー移動補間
-      if(tCube){
-        if(tCube.position.distanceTo(tTargetPos) > 0.05){
-          tCube.position.lerp(tTargetPos, 0.2); // 0.2の係数で追従
-        } else {
-          tCube.position.copy(tTargetPos);
-        }
-
-        // 回転補間
-        // 角度の不連続問題（PIから-PIへの飛び）を防ぐ簡易処理
-        let currentR = tCube.rotation.y;
-        let diff = tTargetRot - currentR;
-        // -PI ~ PI に正規化
-        while(diff > Math.PI) diff -= Math.PI*2;
-        while(diff < -Math.PI) diff += Math.PI*2;
-        
-        tCube.rotation.y += diff * 0.2;
-
-        // ゴール時のダンス
-        if(tCube.userData.dancing){
-          tCube.rotation.y += 0.2;
-          tCube.position.y = T_CELL_SIZE*0.3 + Math.abs(Math.sin(Date.now()*0.01))*2;
-        }
-      }
-
-      // アイテムのアニメーション
-      const time = Date.now() * 0.002;
-      for(const key in tItems){
-        const sprite = tItems[key];
-        if(sprite.userData.collecting){
-          // 取得エフェクト（拡大フェードアウト）
-          sprite.scale.multiplyScalar(1.1);
-          sprite.material.opacity -= 0.05;
-          if(sprite.material.opacity <= 0){
-            tGridGroup.remove(sprite);
-            delete tItems[key];
-          }
-        } else {
-          // 浮遊
-          sprite.position.y = sprite.userData.baseY + Math.sin(time + sprite.userData.offset) * 0.5;
-        }
-      }
-
-      renderer.render(scene, camera);
-    }
-
-    // 初期化トリガー
-    updateSettingGrid();
-    setMoveMode('absolute');
   });
   </script>
 </body>
