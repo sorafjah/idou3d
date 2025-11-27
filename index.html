@@ -475,12 +475,13 @@
 
       // Scene
       scene = new THREE.Scene();
-      // 空のようなフォグ
-      scene.fog = new THREE.Fog(0xe0f2fe, 30, 150);
+      // フォグを削除
+      // scene.fog = new THREE.Fog(0xe0f2fe, 30, 150);
 
       // Camera
       camera = new THREE.PerspectiveCamera(45, canvasContainer.clientWidth / canvasContainer.clientHeight, 0.1, 1000);
-      camera.position.set(0, 60, 40);
+      // 視点を低くし、斜め45度くらいに設定 (YとZを近づける)
+      camera.position.set(0, 50, 60);
       camera.lookAt(0, 0, 0);
 
       // Renderer
@@ -523,11 +524,47 @@
 
       // Beak
       const beakGeo = new THREE.ConeGeometry(0.8, 1.5, 16);
-      const beakMat = new THREE.MeshStandardMaterial({ color: 0xff8c00 }); // Orange
+      const beakMat = new THREE.MeshStandardMaterial({ color: 0xffa500 }); // より明るいオレンジ(Orange)に変更
       const beak = new THREE.Mesh(beakGeo, beakMat);
       beak.rotation.x = Math.PI / 2;
       beak.position.set(0, 0, 3.2);
       playerGroup.add(beak);
+
+      // Eyebrows (New)
+      const browGeo = new THREE.BoxGeometry(1.0, 0.2, 0.3);
+      const browMat = new THREE.MeshBasicMaterial({ color: 0x000000 });
+      
+      const leftBrow = new THREE.Mesh(browGeo, browMat);
+      leftBrow.position.set(1.5, 1.8, 2.8);
+      leftBrow.rotation.z = -0.2; // 少し角度をつける
+      playerGroup.add(leftBrow);
+
+      const rightBrow = new THREE.Mesh(browGeo, browMat);
+      rightBrow.position.set(-1.5, 1.8, 2.8);
+      rightBrow.rotation.z = 0.2; // 少し角度をつける
+      playerGroup.add(rightBrow);
+
+      // Wings
+      const wingGeo = new THREE.SphereGeometry(1.5, 16, 16);
+      wingGeo.scale(1, 0.5, 1.5); // Flatten and stretch
+      
+      // Left Wing
+      const leftWing = new THREE.Mesh(wingGeo, bodyMat);
+      leftWing.position.set(3.2, 0, 0);
+      playerGroup.add(leftWing);
+
+      // Right Wing (Raised)
+      const rightWing = new THREE.Mesh(wingGeo, bodyMat);
+      rightWing.position.set(-3.2, 1, 0);
+      rightWing.rotation.z = -Math.PI / 4; // Raise it
+      playerGroup.add(rightWing);
+
+      // Tail
+      const tailGeo = new THREE.ConeGeometry(1.2, 2, 16);
+      const tail = new THREE.Mesh(tailGeo, bodyMat);
+      tail.rotation.x = -Math.PI / 2; // Point backwards
+      tail.position.set(0, 0.5, -3.2);
+      playerGroup.add(tail);
 
       scene.add(playerGroup);
 
@@ -592,14 +629,23 @@
         const offsetX = (cols * TILE_SIZE) / 2 - (TILE_SIZE / 2);
         const offsetZ = (rows * TILE_SIZE) / 2 - (TILE_SIZE / 2);
 
-        // Adjust Camera
+        // Adjust Camera (視点変更をここにも反映)
         const maxDim = Math.max(rows, cols);
-        camera.position.set(0, maxDim * 10 + 10, maxDim * 6 + 10);
+        // 高さ(Y)を抑え、奥行き(Z)を確保して45度程度にする
+        camera.position.set(0, maxDim * 8 + 5, maxDim * 8 + 15);
         camera.lookAt(0, 0, 0);
 
         // Floor Logic
         const planeGeo = new THREE.BoxGeometry(TILE_SIZE - 0.5, 1, TILE_SIZE - 0.5); // Slightly smaller for gaps
-        const whiteMat = new THREE.MeshStandardMaterial({ color: 0xf9fafb }); // White-ish
+        
+        // (修正) 床を薄い半透明（氷やガラスのような質感）に設定
+        const whiteMat = new THREE.MeshStandardMaterial({ 
+            color: 0xffffff, 
+            transparent: true, 
+            opacity: 0.3,    // 透明度 (0.0:透明 ~ 1.0:不透明)
+            roughness: 0.1,  // ツルツル具合
+            metalness: 0.1,  // わずかな金属光沢
+        });
 
         for(let r=0; r<rows; r++){
             for(let c=0; c<cols; c++){
@@ -617,7 +663,13 @@
                 // Wall
                 if(gameConfig.walls.some(w => w.row===r && w.col===c)){
                     const wallGeo = new THREE.BoxGeometry(TILE_SIZE - 1, TILE_SIZE, TILE_SIZE - 1);
-                    const wallMat = new THREE.MeshStandardMaterial({ color: 0xa7c7d9 }); // Muted Sky
+                    // (修正) 壁も半透明に
+                    const wallMat = new THREE.MeshStandardMaterial({ 
+                        color: 0xa7c7d9, // Muted Sky
+                        transparent: true,
+                        opacity: 0.6,    // 壁は床より少し濃いめに
+                        roughness: 0.2
+                    }); 
                     const wall = new THREE.Mesh(wallGeo, wallMat);
                     wall.position.set(x, TILE_SIZE/2, z);
                     wall.castShadow = true;
@@ -632,8 +684,9 @@
                     const spriteMap = createEmojiTexture(emoji, label);
                     const spriteMat = new THREE.SpriteMaterial({ map: spriteMap });
                     const sprite = new THREE.Sprite(spriteMat);
-                    sprite.position.set(x, 6, z); // Float above floor
-                    sprite.scale.set(8, 8, 1);
+                    // 高さを下げる (6 -> 3.5)
+                    sprite.position.set(x, 3.5, z); 
+                    sprite.scale.set(7, 7, 1); // 少しサイズ調整
                     // Add userData to identify for removal later
                     sprite.userData = { row: r, col: c, type: 'item' };
                     scene.add(sprite);
